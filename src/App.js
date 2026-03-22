@@ -1,94 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Link, useParams } from "react-router-dom";
+import axios from "axios";
 import "./index.css";
 
-/* ------------------- DONNÉES FACTICES ------------------- */
-const mockCharacters = [
-  {
-    id: 1,
-    name: "Aranielle",
-    class: "Voleur",
-    race: "Elfe",
-    level: 5,
-    avatar: "https://i.pravatar.cc/100?img=1",
-    skills: ["Dague", "Discrétion", "Acrobaties"],
-    stats: { force: 10, agility: 18, intelligence: 14 },
-    groups: [1, 3]
-  },
-  {
-    id: 2,
-    name: "Borok",
-    class: "Guerrier",
-    race: "Nain",
-    level: 7,
-    avatar: "https://i.pravatar.cc/100?img=2",
-    skills: ["Hache", "Bouclier", "Endurance"],
-    stats: { force: 18, agility: 12, intelligence: 10 },
-    groups: [2]
-  },
-  {
-    id: 3,
-    name: "Celyra",
-    class: "Mage",
-    race: "Humain",
-    level: 6,
-    avatar: "https://i.pravatar.cc/100?img=3",
-    skills: ["Boule de feu", "Soin", "Téléportation"],
-    stats: { force: 8, agility: 14, intelligence: 20 },
-    groups: [1, 3]
-  },
-  {
-    id: 4,
-    name: "Drogath",
-    class: "Guerrier",
-    race: "Orc",
-    level: 4,
-    avatar: "https://i.pravatar.cc/100?img=4",
-    skills: ["Épée", "Charge", "Intimidation"],
-    stats: { force: 16, agility: 10, intelligence: 8 },
-    groups: [2]
-  }
-];
-
-const mockGroups = [
-  {
-    id: 1,
-    name: "Les Éclaireurs",
-    description: "Groupe spécialisé dans la reconnaissance et l'espionnage.",
-    maxMembers: 5,
-    availableSlots: 3,
-    members: [1,3]
-  },
-  {
-    id: 2,
-    name: "Les Guerriers du Nord",
-    description: "Braves guerriers protégeant le nord des invasions.",
-    maxMembers: 4,
-    availableSlots: 2,
-    members: [2,4]
-  },
-  {
-    id: 3,
-    name: "La Guilde des Mages",
-    description: "Organisation de mages recherchant des artefacts anciens.",
-    maxMembers: 6,
-    availableSlots: 5,
-    members: [1,3]
-  }
-];
+const API = "http://localhost:3001";
 
 /* ------------------- LISTE DES PERSONNAGES ------------------- */
 function CharactersList() {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState("");
   const [raceFilter, setRaceFilter] = useState("");
   const [sortField, setSortField] = useState("name");
 
   useEffect(() => {
-    setCharacters(mockCharacters);
-    setLoading(false);
+    axios.get(`${API}/characters`)
+      .then(res => { setCharacters(res.data); setLoading(false); })
+      .catch(() => { setError("Impossible de contacter le serveur. Lancez : npm run server"); setLoading(false); });
   }, []);
 
   const filtered = characters.filter(c =>
@@ -104,6 +34,7 @@ function CharactersList() {
   });
 
   if(loading) return <div>Chargement...</div>;
+  if(error) return <div style={{ color:"red", padding:"20px" }}>{error}</div>;
 
   return (
     <div style={{ padding:"20px" }}>
@@ -154,13 +85,20 @@ function CharactersList() {
 function CharacterDetail() {
   const { id } = useParams();
   const [character, setCharacter] = useState(null);
+  const [groups, setGroups] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(()=>{
-    const found = mockCharacters.find(c=>c.id===parseInt(id));
-    setCharacter(found||null);
+    axios.get(`${API}/characters/${id}`)
+      .then(res => setCharacter(res.data))
+      .catch(() => setError("Personnage introuvable"));
+    axios.get(`${API}/groups`)
+      .then(res => setGroups(res.data))
+      .catch(() => {});
   },[id]);
 
-  if(!character) return <div>Personnage introuvable</div>;
+  if(error) return <div>{error}</div>;
+  if(!character) return <div>Chargement...</div>;
 
   return (
     <div style={{ padding:"20px" }}>
@@ -187,8 +125,8 @@ function CharacterDetail() {
       <h3>Groupes</h3>
       <ul>
         {character.groups.map(gid=>{
-          const group = mockGroups.find(gr=>gr.id===gid);
-          return <li key={gid}><Link to={`/group/${gid}`}>{group.name}</Link></li>
+          const group = groups.find(gr=>gr.id===gid);
+          return group ? <li key={gid}><Link to={`/group/${gid}`}>{group.name}</Link></li> : null;
         })}
       </ul>
     </div>
@@ -200,7 +138,9 @@ function GroupsList() {
   const [groups, setGroups] = useState([]);
   const [search, setSearch] = useState("");
 
-  useEffect(()=>setGroups(mockGroups),[]);
+  useEffect(()=>{
+    axios.get(`${API}/groups`).then(res => setGroups(res.data)).catch(()=>{});
+  },[]);
 
   const available = groups.filter(g=>g.availableSlots>0);
   const filtered = available.filter(g=>g.name.toLowerCase().includes(search.toLowerCase()));
@@ -228,13 +168,20 @@ function GroupsList() {
 function GroupDetail() {
   const { id } = useParams();
   const [group, setGroup] = useState(null);
+  const [characters, setCharacters] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(()=>{
-    const found = mockGroups.find(g=>g.id===parseInt(id));
-    setGroup(found||null);
+    axios.get(`${API}/groups/${id}`)
+      .then(res => setGroup(res.data))
+      .catch(() => setError("Groupe introuvable"));
+    axios.get(`${API}/characters`)
+      .then(res => setCharacters(res.data))
+      .catch(()=>{});
   },[id]);
 
-  if(!group) return <div>Groupe introuvable</div>;
+  if(error) return <div>{error}</div>;
+  if(!group) return <div>Chargement...</div>;
 
   return (
     <div style={{ padding:"20px" }}>
@@ -246,8 +193,8 @@ function GroupDetail() {
       <h3>Membres</h3>
       <ul>
         {group.members.map(cid=>{
-          const char = mockCharacters.find(c=>c.id===cid);
-          return <li key={cid}><Link to={`/character/${cid}`}>{char.name}</Link></li>
+          const char = characters.find(c=>c.id===cid);
+          return char ? <li key={cid}><Link to={`/character/${cid}`}>{char.name}</Link></li> : null;
         })}
       </ul>
     </div>
