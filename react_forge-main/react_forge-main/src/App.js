@@ -3,33 +3,7 @@ import { Routes, Route, Link, useParams } from "react-router-dom";
 import axios from "axios";
 import "./index.css";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
-
-const normalizeCollection = (payload) => {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.["hydra:member"])) return payload["hydra:member"];
-  if (Array.isArray(payload?.data)) return payload.data;
-  return [];
-};
-
-const normalizeItem = (payload) => {
-  if (payload?.data && !Array.isArray(payload.data)) return payload.data;
-  return payload;
-};
-
-const toId = (value) => {
-  if (typeof value === "number" || typeof value === "string") return value;
-  if (value && typeof value === "object") {
-    if (Object.prototype.hasOwnProperty.call(value, "id")) return value.id;
-    if (typeof value["@id"] === "string") {
-      const parts = value["@id"].split("/").filter(Boolean);
-      return parts[parts.length - 1] || null;
-    }
-  }
-  return null;
-};
-
-const idsEqual = (a, b) => String(a) === String(b);
+const API = "http://localhost:3001";
 
 /* ------------------- LISTE DES PERSONNAGES ------------------- */
 function CharactersList() {
@@ -43,19 +17,19 @@ function CharactersList() {
 
   useEffect(() => {
     axios.get(`${API}/characters`)
-      .then(res => { setCharacters(normalizeCollection(res.data)); setLoading(false); })
-      .catch(() => { setError("Impossible de contacter l'API. Vérifie REACT_APP_API_URL et le backend Symfony."); setLoading(false); });
+      .then(res => { setCharacters(res.data); setLoading(false); })
+      .catch(() => { setError("Impossible de contacter le serveur. Lancez : npm run server"); setLoading(false); });
   }, []);
 
   const filtered = characters.filter(c =>
-    (c.name || "").toLowerCase().includes(search.toLowerCase()) &&
+    c.name.toLowerCase().includes(search.toLowerCase()) &&
     (classFilter === "" || c.class === classFilter) &&
     (raceFilter === "" || c.race === raceFilter)
   );
 
   const sorted = [...filtered].sort((a,b) => {
-    if(sortField==="name") return (a.name || "").localeCompare(b.name || "");
-    if(sortField==="level") return Number(a.level || 0) - Number(b.level || 0);
+    if(sortField==="name") return a.name.localeCompare(b.name);
+    if(sortField==="level") return a.level - b.level;
     return 0;
   });
 
@@ -92,7 +66,7 @@ function CharactersList() {
         {sorted.map(c => (
           <Link key={c.id} to={`/character/${c.id}`} style={{ textDecoration:"none", color:"black" }}>
             <div className="card" style={{ display:"flex", alignItems:"center" }}>
-              <img src={c.avatar || "https://i.pravatar.cc/100"} alt={c.name} style={{ width:"60px", height:"60px", borderRadius:"50%", marginRight:"15px"}}/>
+              <img src={c.avatar} alt={c.name} style={{ width:"60px", height:"60px", borderRadius:"50%", marginRight:"15px"}}/>
               <div>
                 <h3>{c.name} - Niveau {c.level}</h3>
                 <p><strong>Classe:</strong> {c.class} | <strong>Race:</strong> {c.race}</p>
@@ -116,10 +90,10 @@ function CharacterDetail() {
 
   useEffect(()=>{
     axios.get(`${API}/characters/${id}`)
-      .then(res => setCharacter(normalizeItem(res.data)))
+      .then(res => setCharacter(res.data))
       .catch(() => setError("Personnage introuvable"));
     axios.get(`${API}/groups`)
-      .then(res => setGroups(normalizeCollection(res.data)))
+      .then(res => setGroups(res.data))
       .catch(() => {});
   },[id]);
 
@@ -136,12 +110,12 @@ function CharacterDetail() {
           <p><strong>Classe:</strong> {character.class}</p>
           <p><strong>Race:</strong> {character.race}</p>
           <p><strong>Niveau:</strong> {character.level}</p>
-          <p><strong>Compétences:</strong> {(character.skills || []).join(", ")}</p>
+          <p><strong>Compétences:</strong> {character.skills.join(", ")}</p>
         </div>
       </div>
 
       <h3>Stats</h3>
-      {Object.entries(character.stats || {}).map(([key,value])=>(
+      {Object.entries(character.stats).map(([key,value])=>(
         <div key={key}>
           <strong>{key.charAt(0).toUpperCase()+key.slice(1)}:</strong>
           <div className="progress-bar"><div className="progress" style={{width:`${value*5}%`}}></div></div>
@@ -150,9 +124,9 @@ function CharacterDetail() {
 
       <h3>Groupes</h3>
       <ul>
-        {(character.groups || []).map(toId).filter(gid => gid !== null).map(gid=>{
-          const group = groups.find(gr => idsEqual(gr.id, gid));
-          return group ? <li key={String(gid)}><Link to={`/group/${gid}`}>{group.name}</Link></li> : null;
+        {character.groups.map(gid=>{
+          const group = groups.find(gr=>gr.id===gid);
+          return group ? <li key={gid}><Link to={`/group/${gid}`}>{group.name}</Link></li> : null;
         })}
       </ul>
     </div>
@@ -165,16 +139,11 @@ function GroupsList() {
   const [search, setSearch] = useState("");
 
   useEffect(()=>{
-    axios.get(`${API}/groups`).then(res => setGroups(normalizeCollection(res.data))).catch(()=>{});
+    axios.get(`${API}/groups`).then(res => setGroups(res.data)).catch(()=>{});
   },[]);
 
-  const available = groups.filter(g => {
-    const members = Array.isArray(g.members) ? g.members : [];
-    const maxMembers = Number(g.maxMembers || 0);
-    const slots = typeof g.availableSlots === "number" ? g.availableSlots : Math.max(maxMembers - members.length, 0);
-    return slots > 0;
-  });
-  const filtered = available.filter(g => (g.name || "").toLowerCase().includes(search.toLowerCase()));
+  const available = groups.filter(g=>g.availableSlots>0);
+  const filtered = available.filter(g=>g.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div style={{ padding:"20px" }}>
@@ -186,17 +155,8 @@ function GroupsList() {
       {filtered.map(g=>(
         <Link key={g.id} to={`/group/${g.id}`} style={{ textDecoration:"none", color:"black" }}>
           <div className="card">
-            {(() => {
-              const members = Array.isArray(g.members) ? g.members : [];
-              const maxMembers = Number(g.maxMembers || 0);
-              const slots = typeof g.availableSlots === "number" ? g.availableSlots : Math.max(maxMembers - members.length, 0);
-              return (
-                <>
-                  <h3>{g.name}</h3>
-                  <p>Membres : {members.length}/{maxMembers} | Places restantes: {slots}</p>
-                </>
-              );
-            })()}
+            <h3>{g.name}</h3>
+            <p>Membres : {g.members.length}/{g.maxMembers} | Places restantes: {g.availableSlots}</p>
           </div>
         </Link>
       ))}
@@ -213,34 +173,28 @@ function GroupDetail() {
 
   useEffect(()=>{
     axios.get(`${API}/groups/${id}`)
-      .then(res => setGroup(normalizeItem(res.data)))
+      .then(res => setGroup(res.data))
       .catch(() => setError("Groupe introuvable"));
     axios.get(`${API}/characters`)
-      .then(res => setCharacters(normalizeCollection(res.data)))
+      .then(res => setCharacters(res.data))
       .catch(()=>{});
   },[id]);
 
   if(error) return <div>{error}</div>;
   if(!group) return <div>Chargement...</div>;
 
-  const groupMemberIds = (group.members || []).map(toId).filter(cid => cid !== null);
-  const maxMembers = Number(group.maxMembers || 0);
-  const availableSlots = typeof group.availableSlots === "number"
-    ? group.availableSlots
-    : Math.max(maxMembers - groupMemberIds.length, 0);
-
   return (
     <div style={{ padding:"20px" }}>
       <Link to="/groups" style={{ display:"inline-block", marginBottom:"15px", color:"#007bff"}}>← Retour aux groupes</Link>
       <h1>{group.name}</h1>
       <p>{group.description}</p>
-      <p>Membres: {groupMemberIds.length}/{maxMembers} | Places restantes: {availableSlots}</p>
+      <p>Membres: {group.members.length}/{group.maxMembers} | Places restantes: {group.availableSlots}</p>
 
       <h3>Membres</h3>
       <ul>
-        {groupMemberIds.map(cid=>{
-          const char = characters.find(c => idsEqual(c.id, cid));
-          return char ? <li key={String(cid)}><Link to={`/character/${cid}`}>{char.name}</Link></li> : null;
+        {group.members.map(cid=>{
+          const char = characters.find(c=>c.id===cid);
+          return char ? <li key={cid}><Link to={`/character/${cid}`}>{char.name}</Link></li> : null;
         })}
       </ul>
     </div>

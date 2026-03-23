@@ -1,0 +1,74 @@
+{
+  "characters": [
+    {
+      "id": 1,
+      "name": "Aranielle",
+      "class": "Voleur",
+      "race": "Elfe",
+      "level": 5,
+      "avatar": "https://i.pravatar.cc/100?img=1",
+      "skills": ["Dague", "Discrétion", "Acrobaties"],
+      "stats": { "force": 10, "agility": 18, "intelligence": 14 },
+      "groups": [1, 3]
+    },
+    {
+      "id": 2,
+      "name": "Borok",
+      "class": "Guerrier",
+      "race": "Nain",
+      "level": 7,
+      "avatar": "https://i.pravatar.cc/100?img=2",
+      "skills": ["Hache", "Bouclier", "Endurance"],
+      "stats": { "force": 18, "agility": 12, "intelligence": 10 },
+      "groups": [2]
+    },
+    {
+      "id": 3,
+      "name": "Celyra",
+      "class": "Mage",
+      "race": "Humain",
+      "level": 6,
+      "avatar": "https://i.pravatar.cc/100?img=3",
+      "skills": ["Boule de feu", "Soin", "Téléportation"],
+      "stats": { "force": 8, "agility": 14, "intelligence": 20 },
+      "groups": [1, 3]
+    },
+    {
+      "id": 4,
+      "name": "Drogath",
+      "class": "Guerrier",
+      "race": "Orc",
+      "level": 4,
+      "avatar": "https://i.pravatar.cc/100?img=4",
+      "skills": ["Épée", "Charge", "Intimidation"],
+      "stats": { "force": 16, "agility": 10, "intelligence": 8 },
+      "groups": [2]
+    }
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "name": "Les Éclaireurs",
+      "description": "Groupe spécialisé dans la reconnaissance et l'espionnage.",
+      "maxMembers": 5,
+      "availableSlots": 3,
+      "members": [1, 3]
+    },
+    {
+      "id": 2,
+      "name": "Les Guerriers du Nord",
+      "description": "Braves guerriers protégeant le nord des invasions.",
+      "maxMembers": 4,
+      "availableSlots": 2,
+      "members": [2, 4]
+    },
+    {
+      "id": 3,
+      "name": "La Guilde des Mages",
+      "description": "Organisation de mages recherchant des artefacts anciens.",
+      "maxMembers": 6,
+      "availableSlots": 5,
+      "members": [1, 3]
+    }
+  ]
+}
