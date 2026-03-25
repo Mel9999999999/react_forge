@@ -1,20 +1,35 @@
+# Dépendances
+node_modules/
 
-###> symfony/framework-bundle ###
-/.env.local
-/.env.local.php
-/.env.*.local
-/config/secrets/prod/prod.decrypt.private.php
-/public/bundles/
-/var/
-/vendor/
-###< symfony/framework-bundle ###
+# Build
+build/
+dist/
 
-###> phpunit/phpunit ###
-/phpunit.xml
-/.phpunit.cache/
-###< phpunit/phpunit ###
+# Variables d'environnement (contient l'URL de l'API)
+.env
+.env.local
+.env.*.local
 
-###> symfony/asset-mapper ###
-/public/assets/
-/assets/vendor/
-###< symfony/asset-mapper ###
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache
+.cache/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fichiers PHP qui ne devraient pas être là
+src/Controller/
+src/Entity/
+src/Repository/
+src/Command/
+src/EventSubscriber/
+src/Kernel.php

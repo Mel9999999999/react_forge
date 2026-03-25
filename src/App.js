@@ -3,7 +3,7 @@ import { Routes, Route, Link, useParams } from "react-router-dom";
 import axios from "axios";
 import "./index.css";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+const API = process.env.REACT_APP_API_URL || "http://127.0.0.1:8000/api/v1";
 
 const normalizeCollection = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -44,7 +44,7 @@ function CharactersList() {
   useEffect(() => {
     axios.get(`${API}/characters`)
       .then(res => { setCharacters(normalizeCollection(res.data)); setLoading(false); })
-      .catch(() => { setError("Impossible de contacter l'API. Vérifie REACT_APP_API_URL et le backend Symfony."); setLoading(false); });
+      .catch(() => { setError("Impossible de contacter l'API. Vérifie que Symfony est lancé avec : symfony serve --no-tls"); setLoading(false); });
   }, []);
 
   const filtered = characters.filter(c =>
@@ -92,7 +92,10 @@ function CharactersList() {
         {sorted.map(c => (
           <Link key={c.id} to={`/character/${c.id}`} style={{ textDecoration:"none", color:"black" }}>
             <div className="card" style={{ display:"flex", alignItems:"center" }}>
-              <img src={c.avatar || "https://i.pravatar.cc/100"} alt={c.name} style={{ width:"60px", height:"60px", borderRadius:"50%", marginRight:"15px"}}/>
+              {c.image
+                ? <img src={`http://127.0.0.1:8000/uploads/characters/${c.image}`} alt={c.name} style={{ width:"60px", height:"60px", borderRadius:"50%", marginRight:"15px"}}/>
+                : <img src="https://i.pravatar.cc/100" alt={c.name} style={{ width:"60px", height:"60px", borderRadius:"50%", marginRight:"15px"}}/>
+              }
               <div>
                 <h3>{c.name} - Niveau {c.level}</h3>
                 <p><strong>Classe:</strong> {c.class} | <strong>Race:</strong> {c.race}</p>
@@ -107,7 +110,7 @@ function CharactersList() {
   );
 }
 
-/* ------------------- DETAIL D’UN PERSONNAGE ------------------- */
+/* ------------------- DETAIL D'UN PERSONNAGE ------------------- */
 function CharacterDetail() {
   const { id } = useParams();
   const [character, setCharacter] = useState(null);
@@ -118,7 +121,7 @@ function CharacterDetail() {
     axios.get(`${API}/characters/${id}`)
       .then(res => setCharacter(normalizeItem(res.data)))
       .catch(() => setError("Personnage introuvable"));
-    axios.get(`${API}/groups`)
+    axios.get(`${API}/parties`)
       .then(res => setGroups(normalizeCollection(res.data)))
       .catch(() => {});
   },[id]);
@@ -130,20 +133,23 @@ function CharacterDetail() {
     <div style={{ padding:"20px" }}>
       <Link to="/" style={{ display:"inline-block", marginBottom:"15px", color:"#007bff"}}>← Accueil</Link>
       <div className="card" style={{ display:"flex", alignItems:"center" }}>
-        <img src={character.avatar} alt={character.name} style={{ width:"100px", height:"100px", borderRadius:"50%", marginRight:"15px"}}/>
+        {character.image
+          ? <img src={`http://127.0.0.1:8000/uploads/characters/${character.image}`} alt={character.name} style={{ width:"100px", height:"100px", borderRadius:"50%", marginRight:"15px"}}/>
+          : <img src="https://i.pravatar.cc/100" alt={character.name} style={{ width:"100px", height:"100px", borderRadius:"50%", marginRight:"15px"}}/>
+        }
         <div>
           <h1>{character.name}</h1>
           <p><strong>Classe:</strong> {character.class}</p>
           <p><strong>Race:</strong> {character.race}</p>
           <p><strong>Niveau:</strong> {character.level}</p>
-          <p><strong>Compétences:</strong> {(character.skills || []).join(", ")}</p>
+          <p><strong>Compétences:</strong> {(character.skills || []).join(", ") || "Aucune"}</p>
         </div>
       </div>
 
       <h3>Stats</h3>
       {Object.entries(character.stats || {}).map(([key,value])=>(
         <div key={key}>
-          <strong>{key.charAt(0).toUpperCase()+key.slice(1)}:</strong>
+          <strong>{key.charAt(0).toUpperCase()+key.slice(1)}:</strong> {value}
           <div className="progress-bar"><div className="progress" style={{width:`${value*5}%`}}></div></div>
         </div>
       ))}
@@ -165,13 +171,11 @@ function GroupsList() {
   const [search, setSearch] = useState("");
 
   useEffect(()=>{
-    axios.get(`${API}/groups`).then(res => setGroups(normalizeCollection(res.data))).catch(()=>{});
+    axios.get(`${API}/parties`).then(res => setGroups(normalizeCollection(res.data))).catch(()=>{});
   },[]);
 
   const available = groups.filter(g => {
-    const members = Array.isArray(g.members) ? g.members : [];
-    const maxMembers = Number(g.maxMembers || 0);
-    const slots = typeof g.availableSlots === "number" ? g.availableSlots : Math.max(maxMembers - members.length, 0);
+    const slots = typeof g.availableSlots === "number" ? g.availableSlots : Math.max((g.maxSize || 0) - (g.memberCount || 0), 0);
     return slots > 0;
   });
   const filtered = available.filter(g => (g.name || "").toLowerCase().includes(search.toLowerCase()));
@@ -186,17 +190,8 @@ function GroupsList() {
       {filtered.map(g=>(
         <Link key={g.id} to={`/group/${g.id}`} style={{ textDecoration:"none", color:"black" }}>
           <div className="card">
-            {(() => {
-              const members = Array.isArray(g.members) ? g.members : [];
-              const maxMembers = Number(g.maxMembers || 0);
-              const slots = typeof g.availableSlots === "number" ? g.availableSlots : Math.max(maxMembers - members.length, 0);
-              return (
-                <>
-                  <h3>{g.name}</h3>
-                  <p>Membres : {members.length}/{maxMembers} | Places restantes: {slots}</p>
-                </>
-              );
-            })()}
+            <h3>{g.name}</h3>
+            <p>Membres : {g.memberCount}/{g.maxSize} | Places restantes: {g.availableSlots}</p>
           </div>
         </Link>
       ))}
@@ -204,7 +199,7 @@ function GroupsList() {
   );
 }
 
-/* ------------------- DETAIL D’UN GROUPE ------------------- */
+/* ------------------- DETAIL D'UN GROUPE ------------------- */
 function GroupDetail() {
   const { id } = useParams();
   const [group, setGroup] = useState(null);
@@ -212,7 +207,7 @@ function GroupDetail() {
   const [error, setError] = useState(null);
 
   useEffect(()=>{
-    axios.get(`${API}/groups/${id}`)
+    axios.get(`${API}/parties/${id}`)
       .then(res => setGroup(normalizeItem(res.data)))
       .catch(() => setError("Groupe introuvable"));
     axios.get(`${API}/characters`)
@@ -224,7 +219,7 @@ function GroupDetail() {
   if(!group) return <div>Chargement...</div>;
 
   const groupMemberIds = (group.members || []).map(toId).filter(cid => cid !== null);
-  const maxMembers = Number(group.maxMembers || 0);
+  const maxMembers = Number(group.maxSize || 0);
   const availableSlots = typeof group.availableSlots === "number"
     ? group.availableSlots
     : Math.max(maxMembers - groupMemberIds.length, 0);
